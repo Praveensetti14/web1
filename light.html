@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Light On/Off</title>
+  <style>
+    :root{
+      --bg-dark:#0f172a;      /* night */
+      --bg-light:#f8fafc;     /* day */
+      --room:#111827;         /* wall base */
+      --glow:#fff9c4;         /* light color */
+      --switch:#111827;       /* switch housing */
+      --accent:#2563eb;       /* ui buttons */
+    }
+
+    *{ box-sizing:border-box }
+    html,body{ height:100% }
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background: var(--bg-dark); color:#e5e7eb; transition: background .4s ease, color .4s ease;
+      display:grid; place-items:center;
+    }
+
+    /* Stage */
+    .room{
+      position:relative; width:min(92vw, 900px); height:min(62vh, 520px);
+      background: radial-gradient(1200px 600px at 50% 20%, rgba(255,249,196,.0), rgba(15,23,42,1) 55%),
+                  var(--room);
+      border-radius: 28px; overflow:hidden; box-shadow: 0 24px 60px rgba(0,0,0,.45);
+      transition: background .35s ease;
+    }
+    .room.on{
+      background:
+        radial-gradient(800px 420px at 50% 22%, rgba(255,249,196,.95), rgba(255,249,196,.25) 40%, rgba(15,23,42,.85) 70%),
+        linear-gradient(#1f2937, #0b1220);
+      color:#0b1220;
+    }
+
+    /* Ceiling and hanging wire */
+    .ceiling{ position:absolute; top:0; left:0; right:0; height:14%; background: linear-gradient(#0b1220, #111827);}
+    .wire{ position:absolute; top:14%; left:50%; width:4px; height:20%; transform:translateX(-50%); background:#222a3a; }
+
+    /* Bulb */
+    .bulb{
+      position:absolute; top:33%; left:50%; transform: translateX(-50%);
+      width:140px; height:160px;
+      filter: drop-shadow(0 24px 40px rgba(0,0,0,.45));
+    }
+    .bulb svg{ width:100%; height:100%; display:block; }
+    .glow{ opacity:0; transition: opacity .25s ease; }
+    .room.on .glow{ opacity:1; }
+
+    /* Desk silhouette for depth */
+    .desk{ position:absolute; left:8%; right:8%; bottom:0; height:28%; background:linear-gradient(#0b1220, #060a14); border-top-left-radius:18px; border-top-right-radius:18px; box-shadow: 0 -10px 30px rgba(0,0,0,.55) inset; }
+
+    /* Switch panel */
+    .panel{
+      position:absolute; right:18px; bottom:18px; display:flex; align-items:center; gap:10px;
+      background: rgba(255,255,255,.08); backdrop-filter: blur(8px);
+      padding:10px 12px; border-radius: 999px; border:1px solid rgba(255,255,255,.12);
+    }
+    .toggle{ position:relative; width:70px; height:36px; background:#111827; border-radius:999px; box-shadow: inset 0 3px 10px rgba(0,0,0,.6); cursor:pointer; outline:none; border:none; }
+    .knob{ position:absolute; top:4px; left:4px; width:28px; height:28px; border-radius:50%; background:#e5e7eb; box-shadow: 0 2px 7px rgba(0,0,0,.35); transition:left .2s ease; }
+    .room.on .knob{ left:38px; }
+
+    .btn{ border:0; padding:10px 14px; border-radius:999px; background:var(--accent); color:white; font-weight:700; cursor:pointer; }
+    .hint{ font-size:12px; opacity:.75; }
+
+    /* Accessibility focus */
+    .toggle:focus-visible, .btn:focus-visible{ outline: 3px solid #93c5fd; outline-offset: 3px; }
+
+    /* Footer */
+    .footer{ position:absolute; left:16px; bottom:16px; font-size:12px; opacity:.7; }
+    .footer a{ color: currentColor; text-decoration: none; border-bottom:1px dashed currentColor }
+  </style>
+</head>
+<body>
+  <main class="room" id="room" aria-live="polite" aria-label="Room with hanging light">
+    <div class="ceiling"></div>
+    <div class="wire"></div>
+
+    <!-- Bulb Icon -->
+    <div class="bulb" aria-hidden="true">
+      <svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">
+        <!-- glow -->
+        <defs>
+          <radialGradient id="g" cx="50%" cy="35%" r="60%">
+            <stop offset="0%" stop-color="#fff9c4"/>
+            <stop offset="70%" stop-color="#fff9c4" stop-opacity=".45"/>
+            <stop offset="100%" stop-color="#fff9c4" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle class="glow" cx="100" cy="80" r="90" fill="url(#g)"/>
+        <!-- bulb body -->
+        <ellipse cx="100" cy="110" rx="50" ry="60" fill="#fef3c7" stroke="#fcd34d" stroke-width="6"/>
+        <rect x="80" y="48" width="40" height="26" rx="6" fill="#9ca3af"/>
+        <rect x="86" y="32" width="28" height="18" rx="5" fill="#d1d5db"/>
+        <!-- filament -->
+        <path d="M80 120 q20 -20 40 0" fill="none" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <div class="desk"></div>
+
+    <!-- Control panel -->
+    <div class="panel" role="toolbar" aria-label="Light controls">
+      <button id="toggle" class="toggle" aria-pressed="false" aria-label="Toggle light">
+        <span class="knob" aria-hidden="true"></span>
+      </button>
+      <button id="btn" class="btn" aria-label="Switch">Light: <span id="state">Off</span></button>
+      <span class="hint">Space or L to toggle</span>
+    </div>
+
+    <div class="footer">Simple Light On/Off — free to copy.</div>
+  </main>
+
+  <script>
+    const room = document.getElementById('room');
+    const toggle = document.getElementById('toggle');
+    const btn = document.getElementById('btn');
+    const state = document.getElementById('state');
+
+    // restore last state
+    const saved = localStorage.getItem('light:on');
+    if(saved === '1'){ room.classList.add('on'); updateLabel(true); }
+
+    function updateLabel(isOn){
+      state.textContent = isOn ? 'On' : 'Off';
+      toggle.setAttribute('aria-pressed', String(isOn));
+      document.body.style.background = isOn ? 'var(--bg-light)' : 'var(--bg-dark)';
+      document.body.style.color = isOn ? '#0b1220' : '#e5e7eb';
+      localStorage.setItem('light:on', isOn ? '1' : '0');
+    }
+
+    function flip(){
+      const isOn = !room.classList.contains('on');
+      room.classList.toggle('on', isOn);
+      updateLabel(isOn);
+    }
+
+    toggle.addEventListener('click', flip);
+    btn.addEventListener('click', flip);
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', (e)=>{
+      if(e.code === 'Space'){ e.preventDefault(); flip(); }
+      if(e.key === 'l' || e.key === 'L'){ flip(); }
+    });
+  </script>
+</body>
+</html>
